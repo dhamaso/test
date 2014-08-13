@@ -1,0 +1,480 @@
+<%@ Page Title="Home Page" Language="C#" MasterPageFile="~/Site.master" AutoEventWireup="true"
+    CodeBehind="Default.aspx.cs" Inherits="Cuestionario.PL._Default" %>
+<asp:Content ID="HeaderContent" runat="server" ContentPlaceHolderID="HeadContent">
+    <link href="Scripts/jquery-ui/jquery-ui.css" rel="stylesheet" type="text/css" />
+    <link href="Scripts/jquery-ui/jquery-ui.theme.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+        .hiddenItem, .hiddenList
+        {
+            display:none;
+        }
+         #lft
+        {
+            width:450px;
+            float:left;
+            background:#f5f5f1;
+            margin-right:8px;
+        }
+        #rgt
+        {
+            width:450px;
+            float:left;
+            border:1px dashed #ccc;
+        }
+        body.dragging, body.dragging * {
+            cursor: move !important;
+        }
+        .dragged {
+            position: absolute;
+            opacity: 0.5;
+            z-index: 2000;
+        }
+        ol 
+        {
+            list-style-type:none;
+            padding: 0;
+            /* margin: 0 0 9px 25px; */
+        }
+        ol.sortdraggable 
+        {
+            margin: 0 0 9px 0;
+            min-height: 10px;
+            padding:0;
+        }
+        ol.sortdraggable li
+        {
+            display: block;
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #cccccc;
+            color: #0088cc;
+            background: #eeeeee;
+            cursor:pointer;
+            line-height:18px;
+        }
+        ol.sortdraggable li.placeholder {
+            position: relative;
+            background:#ccc;
+            border:1px dashed #eee;
+        }
+        ol.sortdraggable li.placeholder:before {
+            position: absolute;
+        }
+        #contenedor
+        {
+            clear:both;
+            }
+    </style>
+</asp:Content>
+<asp:Content ID="BodyContent" runat="server" ContentPlaceHolderID="MainContent">
+
+    
+    <ul id="tmpList" class="hiddenList">
+    </ul>
+
+    <div id="btnWrapper">
+        <button type="button" id="btnGuardar">Guardar</button>
+    </div>
+    <div id="contenedor">
+        <div id="lft">
+            <ol id="qa" class="sortdraggable"></ol>
+        </div>
+        <div id="rgt">
+            <ol id="qac" class="sortdraggable"></ol>
+        </div>
+    </div>
+
+
+
+</asp:Content>
+<asp:Content ID="FooterScripts" runat="server" ContentPlaceHolderID="FooterContent">
+    <script src="Scripts/jquery-1.7.2.js" type="text/javascript"></script>
+    <script src="Scripts/jquery-ui/jquery-ui.js" type="text/javascript"></script>
+    <script src="Scripts/jquery-sortable.js" type="text/javascript"></script>
+    <script type="text/javascript" src="Scripts/app.js"></script>
+</asp:Content>
+
+-------
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Text;
+using System.Web.Script.Services;
+
+namespace Cuestionario.PL
+{
+    public partial class Datos : System.Web.UI.Page
+    {
+        protected void Page_Load(object sender, EventArgs e)
+        {
+        }
+
+
+        [System.Web.Services.WebMethod]
+        [ScriptMethod(UseHttpGet = true)]
+        public static void ObtenerPreguntasPendientes()
+        {
+            // Obtener el string de conexion
+            string connectionString = ConfigurationManager.ConnectionStrings["Dev"].ToString();
+
+            StringBuilder sb = new StringBuilder();
+
+            List<PreResEnt> listado = new List<PreResEnt>();
+
+            using (SqlConnection conn = new SqlConnection(connectionString.ToString()))
+            {
+                conn.Open();
+                SqlCommand cmd = new SqlCommand("spObtenerPreguntasSeleccion", conn);
+                cmd.CommandType = CommandType.StoredProcedure;
+                //cmd.Parameters.Add(new SqlParameter("@id", id));
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        PreResEnt item = new PreResEnt
+                        {
+                            PreguntaId = int.Parse(reader["PreguntaId"].ToString()),
+                            Pregunta = (reader["Pregunta"].ToString()),
+                            CuestionarioId = int.Parse(reader["CuestionarioId"].ToString()),
+                            TipoAccionId = int.Parse(reader["TipoAccionId"].ToString()),
+                            Estatus = reader["Estatus"] as bool? ?? false,
+                            RespuestaId = int.Parse(reader["RespuestaId"].ToString()),
+                            Respuesta = reader["Respuesta"].ToString(),
+                            PreguntaIdAsociado = int.Parse(reader["PreguntaIdAsociado"].ToString()),
+                            Tipo = reader["Tipo"].ToString(),
+                        };
+                        listado.Add(item);
+                    }
+                }
+
+                // Agrupar por pregunta
+                Dictionary<int, PreguntaEnt> dlist = new Dictionary<int, PreguntaEnt>();
+                foreach (PreResEnt pe in listado)
+                {
+                    if(dlist[pe.PreguntaId] == null)
+                    {
+                        dlist.Add(pe.PreguntaId, new PreguntaEnt {
+                            PreguntaId = pe.PreguntaId,
+                            Pregunta = pe.Pregunta,
+                            CuestionarioId = pe.CuestionarioId,
+                            TipoAccionId = pe.TipoAccionId,
+                            Estatus = pe.Estatus
+                        });
+                    }
+                }
+            }
+        }
+
+        [System.Web.Services.WebMethod]
+        [ScriptMethod(UseHttpGet = true)]
+        public static object ObtenerPreguntas()
+        {
+            // Obtener el string de conexion
+            string connectionString = ConfigurationManager.ConnectionStrings["Dev"].ToString();
+
+            StringBuilder sb = new StringBuilder();
+
+            List<PreguntaEnt> listadoPreguntas = new List<PreguntaEnt>();
+
+            // Conectarnos utilizando la conexion como recurso
+            using (SqlConnection con = new SqlConnection(connectionString))
+            {
+                // Abrir la conexion
+                con.Open();
+
+                // Ejecutar el comando
+                using (SqlCommand command = new SqlCommand("SELECT * FROM Preguntas WHERE estatus = 1 AND TipoAccionId IN (1,2)", con))
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    // Recorrer el reader
+                    while (reader.Read())
+                    {
+                        PreguntaEnt p = new PreguntaEnt
+                        {
+                            PreguntaId = int.Parse(reader["PreguntaId"].ToString()),
+                            Pregunta = (reader["Pregunta"].ToString()),
+                            CuestionarioId = int.Parse(reader["CuestionarioId"].ToString()),
+                            TipoAccionId = int.Parse(reader["TipoAccionId"].ToString()),
+                            Estatus = reader["Estatus"] as bool? ?? false
+                        };
+
+                        // Obtener las respuestas de cada pregunta
+                        using (SqlCommand commandRespuesta = new SqlCommand("SELECT * FROM Respuestas WHERE PreguntaId = @PreguntaId AND estatus = 1", con))
+                        {
+                            commandRespuesta.Parameters.Add(new SqlParameter("PreguntaId", p.PreguntaId));
+
+                            using (SqlDataReader readerRespuesta = commandRespuesta.ExecuteReader())
+                            {
+
+                                // Recorrer el reader
+                                while (readerRespuesta.Read())
+                                {
+                                    RespuestaEnt r = new RespuestaEnt
+                                    {
+                                        RespuestaId = int.Parse(readerRespuesta["RespuestaId"].ToString()),
+                                        Respuesta = readerRespuesta["Respuesta"].ToString(),
+                                        PreguntaId = int.Parse(readerRespuesta["PreguntaId"].ToString()),
+                                        PreguntaIdAsociado = int.Parse(readerRespuesta["PreguntaIdAsociado"].ToString()),
+                                        Estatus = readerRespuesta["Estatus"] as bool? ?? false
+                                    };
+                                    p.respuestas.Add(r);
+                                }
+                            }
+                        }
+                        listadoPreguntas.Add(p);
+                    }
+                }
+                return listadoPreguntas;
+            }
+        }
+
+    }
+}
+-------
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Cuestionario.PL
+{
+    public class PreResEnt
+    {
+        public int PreguntaId { get; set; }
+        public string Pregunta { get; set; }
+        public int CuestionarioId { get; set; }
+        public int TipoAccionId { get; set; }
+        public bool Estatus { get; set; }
+        public int RespuestaId { get; set; }
+        public string Respuesta { get; set; }
+        public int PreguntaIdAsociado { get; set; }
+        public string Tipo { get; set; }
+    }
+}
+
+----
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Cuestionario.PL
+{
+    public class RespuestaEnt
+    {
+        public int RespuestaId {get;set;}
+        public string Respuesta {get; set;}
+        public int PreguntaId {get; set;}
+        public int PreguntaIdAsociado {get; set;}
+        public bool Estatus { get; set; }
+        public PreguntaEnt pregunta = null;
+    }
+}
+-----
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Cuestionario.PL
+{
+    public class PreguntaEnt
+    {
+        public int PreguntaId {get; set;}
+        public string Pregunta {get; set;}
+        public int CuestionarioId {get; set;}
+        public int TipoAccionId{get; set;}
+        public bool Estatus {get; set;}
+        public List<RespuestaEnt> respuestas = new List<RespuestaEnt>();
+    }
+}
+-----
+$(function () {
+
+    var backupItem = null; // almacena un clon del elemento que se esta arrastrando
+    var containerSource = null; // almacena el contenedor raiz del lado derecho
+    var containerRoot = null; // almacena el contenedor raiz del lado izquierdo
+    var containerRootSource = null; // almacena el contenedor raiz del lado derecho
+
+    /*
+    * Al dar doble click sobre las preguntas del lado izquierdo pasarlas al 
+    * lado derecho sin necesidad de arrastralas
+    */
+    $("#qa").on('dblclick', 'li.preguntaItem', function () {
+        $this = $(this);
+        $("#qac").append($this.clone());
+        $this.remove();
+    });
+
+    // Se ultiliza para separar cada una de las preguntas anidadas cuando se pasan de derecha a izquierda
+    var separarPreguntas = function (liPregunta) {
+        var $ol = liPregunta.children('ol');
+        var $respuestas = $ol.children('li.respuestaItem');
+        var $preguntasAnidadas = $respuestas.find('ol > li.preguntaItem');
+        $('#tmpList').append(liPregunta);
+        // verificar si hay preguntas anidadas
+        if ($preguntasAnidadas.length > 0) {
+            $.each($preguntasAnidadas, function (index, pregunta) {
+                separarPreguntas($(pregunta));
+            });
+        }
+    };
+
+    // Generamos el listado del lado derecho (esto vendria de la base de datos)
+    var qac = $("#qac").sortable({
+        group: "pregres",
+        exclude: ".exclude",
+        onDrop: function ($item, container, _super, event) {
+            var $container = $(container.el);
+            var liParent = $container.parent();
+
+            // No se puede anidar una pregunta con otra
+            if (liParent.hasClass('preguntaItem')) {
+                console.log("error: no se puede anidar una pregunta con otra");
+                $item.remove();
+                backupItem.removeClass("hiddenItem");
+                return;
+            }
+
+            // No se pueden anidar dos preguntas para una misma respuesta
+            if ($container.children('li').not('.preguntaItem.dragged').length > 0 && !$container.hasClass('sortdraggable')) {
+                console.log("error: no se pueden anidar dos preguntas en la misma respuesta");
+                $item.remove();
+                backupItem.removeClass("hiddenItem");
+                return;
+            }
+
+            // Si es una pregunta simple no se pueden poner mas de una pregunta anidada para las respuestas
+            var rootParent = $container.parents('li.preguntaItem').last();
+            var actionType = rootParent.data('actiontype');
+            if (actionType == 1) 
+            {
+
+                var isValid = true;
+
+                // Recorrer los nodos tipo "respuesta" del nodo "root (primera pregunta)"
+                rootParent.find('ol > li.respuestaItem').each(function (index, respuesta) 
+                {
+
+                    // Comprobar la "respuesta" tiene cargada una "pregunta"
+                    if ($(respuesta).find('ol > li.preguntaItem').length > 1) 
+                    {
+                        isValid = false;
+                        return false;
+                    }
+
+                });
+
+                if (!isValid) 
+                {
+                    console.log("error: No se pueden anidarse mas de 1 pregunta para respuestas simples.");
+                    $item.remove();
+                    backupItem.removeClass("hiddenItem");
+                    return;
+                }
+            }
+
+            containerRoot = $item.parents('ol.sortdraggable').last();
+
+            // Si se intenta pasar una lista anidada desde de el lado izquierdo hacia el derecho
+            // primero descomponemos todo antes de pasarlo
+            if (containerRootSource.attr('id') === 'qac') {
+                // Descomponer todos los nodos
+                $('#tmpList').empty();
+                separarPreguntas($item);
+                $.each($('#tmpList').children('li'), function (i, v) {
+                    $container.append(v);
+                });
+            }
+
+            // Si no hay algun error
+            backupItem.remove();
+            _super($item);
+        },
+        onDragStart: function ($item, container, _super, event) {
+            // Configurar elementos para poder utilizarlos cuando se realize el drop
+            containerRootSource = $item.parents('ol.sortdraggable').last();
+            containerSource = container;
+            // Clonar el elemento que se esta moviendo para despues en caso de error mostrar este.
+            backupItem = $item.clone().insertAfter($item).addClass("hiddenItem");
+            _super($item);
+        }
+    });
+
+    $.ajax({
+        url: "Datos.aspx/ObtenerPreguntas",
+        type: "GET",
+        dataType: "json",
+        contentType: "application/json; charset=utf-8",
+        success: function (response) {
+
+            $contenedor = $("#qa");
+
+            $.each(response.d, function (index, value) {
+                var liPregunta = $("<li/>", {
+                    "class": "preguntaItem",
+                    "id": value.PreguntaId,
+                    "text": value.Pregunta,
+                    "data-id": value.PreguntaId,
+                    "data-type": "pregunta",
+                    "data-actionType": value.TipoAccionId
+                });
+
+                var olRespuestas = $("<ol/>", {
+                    "class": "respuestaList"
+                });
+
+                // Recorrer las preguntas
+                $.each(value.respuestas, function (i, v) {
+
+                    var liRespuesta = $("<li/>", {
+                        "class": "respuestaItem exclude",
+                        "id": value.PreguntaId + "_" + v.RespuestaId,
+                        "text": v.Respuesta,
+                        "data-parentId": value.PreguntaId,
+                        "data-id": v.RespuestaId,
+                        "data-type": "respuesta",
+                        "data-actionType": value.TipoAccionId
+                    });
+
+                    var emptyList = $("<ol/>", {
+                        "class": "respuestaOl"
+                    });
+
+                    liRespuesta.append(emptyList);
+                    olRespuestas.append(liRespuesta);
+                });
+
+                liPregunta.append(olRespuestas);
+                $contenedor.append(liPregunta);
+
+            });
+
+            $contenedor.sortable({
+                group: "pregres",
+                exclude: ".exclude",
+                isValidTarget: function ($item, container) {
+                    console.log($item, container);
+                    return true
+                }
+            })
+        }
+    });
+
+    // Generar el JSON
+    $("#btnGuardar").click(function () {
+        var data = qac.sortable("serialize").get();
+        var jsonString = JSON.stringify(data, null, ' ');
+        console.log(jsonString);
+    });
+});
