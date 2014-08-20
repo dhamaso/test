@@ -1,0 +1,141 @@
+var App = (window.App || {});
+
+(function (window, document, $) { 
+    this.chart = null;
+
+    this.buildChartVisitas = function()
+    {
+        var visitas = new Highcharts.Chart({
+            chart: {
+                type: 'column',
+                renderTo : 'visitas',
+                alignTicks : true,
+                shadow: false
+            },
+            colors : ["#FF0000", "#0000FF"],
+            title: {
+                text: '{Nombre del Mes}'
+            },
+            xAxis: {
+                categories: [1,2,3,4,5,6,7,8,9,10]
+            },
+            yAxis: {
+                min: 0,
+                //max  : 16 
+                title: {
+                    enabled : false
+                },
+                stackLabels: {
+                    enabled: true,
+                    style: {
+                        fontWeight: 'bold',
+                        color: 'gray',
+                        top:0
+                    },
+                    useHTML : true
+                }
+            },
+            labels : {
+                items : [
+                    {
+                        html : "<span>Exitosas</span>",
+                        style: {
+	                        left: '-40px',
+	                        top: '-40px'
+                        }
+                    }
+                ],
+                background : "#000"
+            },
+            legend: {
+                enabled : false,
+                align: 'right',
+                x: -200,
+                verticalAlign: 'top',
+                y: 20,
+                floating: true,
+                backgroundColor: 'white',
+                borderColor: '#CCC',
+                borderWidth: 1,
+                shadow: false
+            },
+            credits : {
+                enabled : false
+            },
+            /*
+            tooltip: {
+                formatter: function () {
+                    return '<b>' + this.x + '</b><br/>' +
+                        this.series.name + ': ' + this.y + '<br/>' +
+                        'Total: ' + this.point.stackTotal;
+                }
+            },*/
+            plotOptions: {
+                column: {
+                    stacking: 'percent',
+                    dataLabels: {
+                        enabled: true,
+                        color: 'white',
+                        style: {
+                            textShadow: '0 0 3px black, 0 0 3px black'
+                        }
+                    }
+                }
+            },
+            series: [
+                {
+                    // Fallidas
+                    name: "Fallidas",
+                    data: [{
+                        y : 0
+                    },{
+                        y : 4
+                    },{
+                        y : 7
+                    },{
+                        y : 3
+                    },{
+                        y : 4
+                    },{
+                        y : 5
+                    },{
+                        y : 0
+                    },{
+                        y : 1
+                    },{
+                        y : 3
+                    },{
+                        y : 7
+                    }]
+                },
+                {
+                // Exitosas
+                name: "Exitosas",
+                data: [{
+                        y : 10
+                    },{
+                        y : 11
+                    },{
+                        y : 3
+                    },{
+                        y : 9
+                    },{
+                        y : 6
+                    },{
+                        y : 8
+                    },{
+                        y : 11
+                    },{
+                        y : 12
+                    },{
+                        y : 9
+                    },{
+                        y : 3
+                    }]
+                }
+            ]
+        });
+    };
+}).apply(App, [window, window.document, window.jQuery]);
+
+App.buildChartVisitas();
